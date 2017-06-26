@@ -3,30 +3,29 @@ import json
 import plotly.plotly as py
 import plotly.graph_objs as go
 
-df = pd.read_csv("City Populations.csv")
+# Reading in the data, using Pandas, storing as a dataframe
+populations = pd.read_csv("IL Cities/City Populations.csv")
 
-with open("IL Cities.geojson") as f:
-    cities = json.load(f)
+with open("IL Cities/Cities.geojson") as f:
+  boundaries = json.load(f)
 
-import IPython; IPython.embed()
-
-
-geo_dict = {}
+geometries = {}
 not_in = 0
 
-for i in range(len(geos['features'])):
-    name = cities['features'][i]['properties']['name'][:-4]
-    if name in df["City"]:
-        geo_dict[name] = cities['features'][i]
-    else:
-        not_in += 1
+for i in range(len(boundaries['features'])):
+  name = boundaries['features'][i]['properties']['name'][:-4]
+  if name in populations["City"].unique():
+    geometries[name] = boundaries['features'][i]
+  else:
+    not_in += 1
 print "Not in:", not_in
 
-ser = pd.Series(geo_dict.values(), index = geo_dict.keys())
+ser = pd.Series(geometries.values(), index = geometries.keys())
 ser.name = "Location"
 
-df = df.join(ser, on="City")
-df = df.drop(df.index[0])
+populations = populations.join(ser, on="City")
+# Removing Chicago as an Outlier.
+populations = populations.drop(populations.index[0])
 
 colors = ['#ffffe0','#fffddb','#fffad7','#fff7d1','#fff5cd','#fff2c8',
           '#fff0c4','#ffedbf','#ffebba','#ffe9b7','#ffe5b2','#ffe3af',
@@ -52,19 +51,33 @@ def get_scl(obj):
     frac = obj / 10000
     return scl[frac]
 
-df['Color'] = df['Population'].apply(get_scl)
+populations['Color'] = populations['Population'].apply(get_scl)
 
 layers_ls = []
-for i in df.index:
+for i in populations.index:
     item_dict = dict(sourcetype = 'geojson',
-                     source = df.loc[i]['Location'],
+                     source = populations.loc[i]['Location'],
                      type = 'fill',
-                     color = df.loc[i]['Color'])
+                     color = populations.loc[i]['Color'])
     layers_ls.append(item_dict)
 
 mapbox_access_token = "pk.eyJ1Ijoiam9uZXNqcDYiLCJhIjoiY2ozcWc1aTY2MDFlZDMzbnVpa3hiN2I2ZSJ9.CdLfET8OqcoZkCUVVeplwg"
 
 colorscl = [[i * .01, v] for i,v in enumerate(colors)]
+
+
+#--
+import IPython; IPython.embed()
+#--
+'''
+data = [dict(
+          type="choropleth",
+          colorscale = scl,
+          autocolorscale = False,
+          locations = layers_ls,
+          locationmode = 'USA-states',
+        )]
+'''
 
 data = go.Data([
             go.Scattermapbox(
